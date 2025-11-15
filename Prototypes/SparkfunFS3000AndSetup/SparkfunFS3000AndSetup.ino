@@ -67,16 +67,21 @@ int currentledBlinkInterval = 0;
 // sendingData Setup
 int connectionTokenSendInterval = 50;
 int lastTimeConnectionTokenSent = 0;
-const char connectionToken = '1';
+const String connectionToken = "-1";
 
 // sendingData SensorData
-int sensorDataInterval = 125; //note, reponse time on the sensor is 125ms
+int sensorDataInterval = 125;  //note, reponse time on the sensor is 125ms
 int lastTimeSensorDataSent = 0;
 String SendingData = "";
-String valueSplitter = ";";
-String variableNameSplitter = ",";
+String valueSplitter = ":";
+String variableNameSplitter = "|";
+const String AirVelocityName = "3";
+const String inExhaleSpeedName = "4";
+const String ExHalingThroughNoseName = "2";
+const String BreathingStateName = "1";
 
 //sensor
+float airVelocity;
 
 
 // time
@@ -108,21 +113,22 @@ void SetupSensor() {
 
   if (fs.begin() == false)  //Begin communication over I2C
   {
-    Serial.println("The sensor did not respond. Please check wiring.");
+    //Serial.println("The sensor did not respond. Please check wiring.");
     while (1)
       ;  //Freeze
   }
 
   fs.setRange(AIRFLOW_RANGE_15_MPS);
-  Serial.println("Sensor is connected properly.");
+  //Serial.println("Sensor is connected properly.");
 }
 
 void ConnectionMode() {
   int setupProgressDuration = 0;
   while (!isConnected) {
     UpdateProjectTime();
-    char cmd = CheckIncommingData();
-    if (cmd == '1') {
+    String incommingMessage = CheckIncommingData();
+
+    if (incommingMessage == "1") {
       // if connected device sends 1 break}
       currentledBlinkInterval = ledConnectedBlinkInterval;  // changign blink pattern
       setupProgressDuration = currentTime;
@@ -132,16 +138,15 @@ void ConnectionMode() {
 
     HandleBlinking();
     HandleSendingConnectionToken();
-    
   }
 }
 
-char CheckIncommingData() {
+String CheckIncommingData() {
   if (Serial.available()) {
-    char incomingData = Serial.read();
+    String incomingData = Serial.readStringUntil('\n');
     return incomingData;
   } else {
-    return emptyChar;
+    return "";
   }
 }
 
@@ -169,17 +174,23 @@ void HandleBlinking() {
   }
 }
 
-void HandleSendingSensorData(){
-  if(currentTime - lastTimeSensorDataSent < sensorDataInterval) return;
-  Serial.println(fs.readMetersPerSecond());
-
-
+void HandleSendingSensorData() {
+  int time = currentTime - lastTimeSensorDataSent;
+  if (time > sensorDataInterval) {
+    airVelocity = fs.readMetersPerSecond();
+    Serial.print(AirVelocityName + valueSplitter);
+    Serial.println(airVelocity);
+    //Serial.println("Tick");
+    lastTimeSensorDataSent = currentTime;
+    return;
+  }
+  //Serial.println("-");
 }
 
 void HandleSendingConnectionToken() {
   int connectionTokenTime = currentTime - lastTimeConnectionTokenSent;
   if (connectionTokenTime >= connectionTokenSendInterval) {
-    Serial.println(connectionToken); // sendingConnectionToken
+    Serial.println(connectionToken + valueSplitter + "1");  // sendingConnectionToken
     lastTimeConnectionTokenSent = currentTime;
     //Serial.println("blink");
   }
