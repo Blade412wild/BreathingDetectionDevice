@@ -46,6 +46,8 @@
   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
 
+//V1.0
+
 #include <Wire.h>
 #include <SparkFun_FS3000_Arduino_Library.h>  //Click here to get the library: http://librarymanager/All#SparkFun_FS3000
 
