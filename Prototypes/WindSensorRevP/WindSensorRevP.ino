@@ -32,17 +32,17 @@ void loop() {
 
     // read wind
     int windADunits = analogRead(OutPin);
-     //Serial.print("RW ");   // print raw A/D for debug
-     //Serial.print(windADunits);
-     //Serial.println("\t");
+     Serial.print("RW ");   // print raw A/D for debug
+     Serial.print(windADunits);
+     Serial.println("\t");
     
     
     // wind formula derived from a wind tunnel data, annemometer and some fancy Excel regressions
     // this scalin doesn't have any temperature correction in it yet
 
     
-    float windMPH =  pow((((float)windADunits - 264.0) / 85.6814), 3.36814);
-    float windMs = windMPH * MphToMsFactor;
+    //float windMPH =  pow((((float)windADunits - 264.0) / 85.6814), 3.36814);
+    //float windMs = windMPH * MphToMsFactor;
     //Serial.print(windMPH);
     //Serial.print(" MPH\t");    
 
@@ -61,9 +61,12 @@ void loop() {
     
     float tempC = ((((float)tempRawAD * 5.0) / 1024.0) - 0.400) / .0195; 
     //Serial.println(" C");
-    //Serial.println(windMs); 
+    // Serial.print(" | wind : ");
+    // Serial.print(windMs); 
+    // Serial.println(" ms");
+
     //Serial.print(',');
-    Serial.println(tempC);
+    //Serial.println(tempC);
     delay(500);
 }
 
