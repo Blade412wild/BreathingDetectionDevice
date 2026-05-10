@@ -23,6 +23,7 @@ pin 13 : Led Right
 
 
 //-------------------------------- BoardSetup
+
 // mux cport onnection
 const uint8_t leftPort = 1;
 const uint8_t rightPort = 0;
@@ -40,6 +41,7 @@ uint8_t exhalePort;
 
 
 //-------------------------------- Communication
+
 // sendingData Setup
 int connectionTokenSendInterval = 50;
 int lastTimeConnectionTokenSent = 0;
@@ -51,8 +53,8 @@ String valueSplitter = ":";
 String variableNameSplitter = "|";
 
 // variables names
-const String inhaleVelocityName = "3";
-const String exhaleVelocityName = "4";
+const String breathingStateName = "1";
+const String In_ExhaleVelocityName = "2";
 
 int sensorDataInterval = 125;  //note, reponse time on the sensor is 125ms
 int lastTimeSensorDataSent = 0;
@@ -69,7 +71,14 @@ bool inhaleSensorConnected;
 bool exhaleSensorConnected;
 
 float inhaleVelocity;
+float previousInhaleVelocity;
+
 float exhaleVelocity;
+float previousExhaleVelocity;
+
+//-------------------------------- overig
+
+int breathingState = 1;  // 0 = inhaling, 1 = holdingBreath, 2 = exhaling
 
 // time
 unsigned long currentTime = 0;
@@ -84,15 +93,13 @@ void setup() {
 
   startTime = millis();
   VelocitySensorsSetup();
-  //ConnectionMode();
+  ConnectionMode();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   UpdateProjectTime();
-  //HandleSendingSensorData();
-
-  //SimpleLedStrip();
+  HandleSendingSensorData();
 }
 
 
@@ -102,17 +109,17 @@ void UpdateProjectTime() {
 
 
 void VelocitySensorsSetup() {
-  Serial.println("-------------");
-  Serial.println("Setup Sensors");
+  //Serial.println("-------------");
+  //Serial.println("Setup Sensors");
 
-  Serial.println("----- inhaling");
-  TryConnectingToSensor(inhaleSensor, InhalingPort, inhaleSensorConnected);
+  //Serial.println("----- inhaling");
+  TryConnectingToSensor(inhaleSensor, InhalingPort, inhaleSensorConnected, InhaleLed);
 
-  Serial.println("----- exhaling");
-  TryConnectingToSensor(exhaleSensor, ExhalingPort, exhaleSensorConnected);
+  //Serial.println("----- exhaling");
+  TryConnectingToSensor(exhaleSensor, ExhalingPort, exhaleSensorConnected, ExhaleLed);
 }
 
-void TryConnectingToSensor(FS3000 &sensor, uint8_t sensorPort, bool &isConnected) {
+void TryConnectingToSensor(FS3000 &sensor, uint8_t sensorPort, bool &isConnected, uint8_t ledPin) {
 
   if (!isConnected) {
     SwitchMuxPortTo(sensorPort);
@@ -122,14 +129,11 @@ void TryConnectingToSensor(FS3000 &sensor, uint8_t sensorPort, bool &isConnected
     } else {
       sensor.setRange(AIRFLOW_RANGE_15_MPS);
       isConnected = true;
-      TurnOnLed(sensorPort);
-      Serial.println("connected");
+      TurnOnLed(ledPin);
+      //Serial.println("connected");
     }
   }
 }
-
-
-
 
 void SwitchMuxPortTo(uint8_t port) {
   tcaselect(port);
@@ -185,30 +189,36 @@ void HandleSendingSensorData() {
 
     if (inhaleSensorConnected) {
       inhaleVelocity = inhaleSensor.readMetersPerSecond();
-      message += inhaleVelocityName + valueSplitter + inhaleVelocity;
-      //Serial.print(inhaleVelocityName + valueSplitter);
-      //Serial.print(inhaleVelocity);
+      if (inhaleVelocity < 1) {
+        inhaleVelocity = 0;
+      }
+
+      message = In_ExhaleVelocityName + valueSplitter + inhaleVelocity;
+      Serial.println(message);
     }
 
+    /*
     if (inhaleSensorConnected && exhaleSensorConnected) {
-      //Serial.print(variableNameSplitter);
       message += variableNameSplitter;
     }
+    */
 
 
     if (exhaleSensorConnected) {
       exhaleVelocity = exhaleSensor.readMetersPerSecond();
-      message += exhaleVelocityName + valueSplitter + exhaleVelocity;
-      //Serial.print(exhaleVelocityName + valueSplitter);
-      //Serial.println(exhaleVelocity);
-    }
-
-    if (inhaleSensorConnected || exhaleSensorConnected) {
+      if (exhaleVelocity < 1) {
+        exhaleVelocity = 0;
+      }
+      message = In_ExhaleVelocityName + valueSplitter + exhaleVelocity;
       Serial.println(message);
     }
 
-
-
+    /*
+    if (inhaleSensorConnected && exhaleSensorConnected) {
+      DecideBreathingState();
+      Serial.println(message);
+    }
+*/
 
     lastTimeSensorDataSent = currentTime;
     return;
@@ -226,6 +236,27 @@ void HandleSendingConnectionToken() {
 }
 
 void ReadSensors() {
+
   inhaleVelocity = inhaleSensor.readMetersPerSecond();
   exhaleVelocity = exhaleSensor.readMetersPerSecond();
+}
+
+void DecideBreathingState() {
+  if (inhaleVelocity == 0 && exhaleVelocity == 0) {
+    // is holding breath
+    breathingState = 2;
+    return;
+  }
+
+  if (inhaleVelocity != previousInhaleVelocity && exhaleVelocity == 0) {
+    // user is inhaling
+    breathingState = 0;
+    return;
+  }
+
+  if (exhaleVelocity != previousExhaleVelocity && inhaleVelocity == 0) {
+    // user is exhaling
+    breathingState = 1;
+    return;
+  }
 }
