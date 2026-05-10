@@ -22,35 +22,60 @@ pin 13 : Led Right
 #define InhaleLed ledBlueLeft
 
 
+//-------------------------------- BoardSetup
 // mux cport onnection
 const uint8_t leftPort = 1;
 const uint8_t rightPort = 0;
 
 // digital pins
-const int ResetPin = 11;
-const int ledBlueLeft = 12;
-const int ledBlueRight = 13;
+const uint8_t ResetPin = 11;
+const uint8_t ledBlueLeft = 12;
+const uint8_t ledBlueRight = 13;
 
-int currentCounter = 0;
+uint8_t ledInterval = 100;
+uint8_t lastLedChange;
 
-int ledInterval = 100;
-int lastLedChange;
+uint8_t inhalePort = 0;
+uint8_t exhalePort;
 
+
+//-------------------------------- Communication
+// sendingData Setup
+int connectionTokenSendInterval = 50;
+int lastTimeConnectionTokenSent = 0;
+const String connectionToken = "-1";
+
+// Parsing/Sending rules
+String SendingData = "";
+String valueSplitter = ":";
+String variableNameSplitter = "|";
+
+// variables names
+const String inhaleVelocityName = "3";
+const String exhaleVelocityName = "4";
+
+int sensorDataInterval = 125;  //note, reponse time on the sensor is 125ms
+int lastTimeSensorDataSent = 0;
+bool isConnected = false;
+char emptyChar = ' ';
+
+//-------------------------------- Sensor
+
+// Sensors
 FS3000 inhaleSensor;
 FS3000 exhaleSensor;
 
 bool inhaleSensorConnected;
 bool exhaleSensorConnected;
 
-uint8_t inhalePort = 0;
-uint8_t exhalePort;
+float inhaleVelocity;
+float exhaleVelocity;
 
 // time
 unsigned long currentTime = 0;
 unsigned long startTime = 0;
 
-
-
+int currentCounter = 0;
 
 void setup() {
   // put your setup code here, to run once:
@@ -59,12 +84,13 @@ void setup() {
 
   startTime = millis();
   VelocitySensorsSetup();
-  
+  //ConnectionMode();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   UpdateProjectTime();
+  //HandleSendingSensorData();
 
   //SimpleLedStrip();
 }
@@ -79,51 +105,29 @@ void VelocitySensorsSetup() {
   Serial.println("-------------");
   Serial.println("Setup Sensors");
 
-  if (!inhaleSensorConnected) {
-    // trying to coneect to sensor inhaling
-    Serial.println("Inhaling");
-    SwitchMuxPortTo(InhalingPort);
-    if (!inhaleSensor.begin()) {
+  Serial.println("----- inhaling");
+  TryConnectingToSensor(inhaleSensor, InhalingPort, inhaleSensorConnected);
+
+  Serial.println("----- exhaling");
+  TryConnectingToSensor(exhaleSensor, ExhalingPort, exhaleSensorConnected);
+}
+
+void TryConnectingToSensor(FS3000 &sensor, uint8_t sensorPort, bool &isConnected) {
+
+  if (!isConnected) {
+    SwitchMuxPortTo(sensorPort);
+
+    if (!sensor.begin()) {
       inhaleSensorConnected = false;
     } else {
-      inhaleSensorConnected = true;
-      TurnOnLed(InhaleLed);
+      sensor.setRange(AIRFLOW_RANGE_15_MPS);
+      isConnected = true;
+      TurnOnLed(sensorPort);
       Serial.println("connected");
     }
   }
-
-  if (!exhaleSensorConnected) {
-    Serial.println("Exhaling");
-    SwitchMuxPortTo(ExhalingPort);
-
-    if (!exhaleSensor.begin()) {
-      exhaleSensorConnected = false;
-
-    } else {
-      exhaleSensorConnected = true;
-
-      TurnOnLed(ExhaleLed);
-      Serial.println("connected");
-    }
-  }
-
-  if (!inhaleSensorConnected || !exhaleSensorConnected) {
-  }
 }
 
-void TryConnectingToSensor(FS3000 &sensor, uint8_t &sensorPort, bool &isConnected) {
-  if (!inhaleSensorConnected) {
-    // trying to coneect to sensor inhaling
-    Serial.println("Inhaling");
-    SwitchMuxPortTo(InhalingPort);
-    if (!inhaleSensor.begin()) {
-      inhaleSensorConnected = false;
-    } else {
-      inhaleSensorConnected = true;
-      TurnOnLed(ExhaleLed);
-    }
-  }
-}
 
 
 
@@ -139,10 +143,89 @@ void tcaselect(uint8_t i2c_bus) {
   Wire.endTransmission();
 }
 
-void TurnOnLed(int ledPin) {
+void TurnOnLed(uint8_t ledPin) {
   digitalWrite(ledPin, HIGH);
 }
 
-void TurnOffLed(int ledPin) {
+void TurnOffLed(uint8_t ledPin) {
   digitalWrite(ledPin, LOW);
+}
+
+void ConnectionMode() {
+  int setupProgressDuration = 0;
+  while (!isConnected) {
+    UpdateProjectTime();
+    String incommingMessage = CheckIncommingData();
+
+    if (incommingMessage == "1") {
+      // if connected device sends 1 break}
+      setupProgressDuration = currentTime;
+      isConnected = true;
+      break;
+    }
+
+    HandleSendingConnectionToken();
+  }
+}
+
+String CheckIncommingData() {
+  if (Serial.available()) {
+    String incomingData = Serial.readStringUntil('\n');
+    return incomingData;
+  } else {
+    return "";
+  }
+}
+
+void HandleSendingSensorData() {
+  int time = currentTime - lastTimeSensorDataSent;
+  String message = "";
+  if (time > sensorDataInterval) {
+
+
+    if (inhaleSensorConnected) {
+      inhaleVelocity = inhaleSensor.readMetersPerSecond();
+      message += inhaleVelocityName + valueSplitter + inhaleVelocity;
+      //Serial.print(inhaleVelocityName + valueSplitter);
+      //Serial.print(inhaleVelocity);
+    }
+
+    if (inhaleSensorConnected && exhaleSensorConnected) {
+      //Serial.print(variableNameSplitter);
+      message += variableNameSplitter;
+    }
+
+
+    if (exhaleSensorConnected) {
+      exhaleVelocity = exhaleSensor.readMetersPerSecond();
+      message += exhaleVelocityName + valueSplitter + exhaleVelocity;
+      //Serial.print(exhaleVelocityName + valueSplitter);
+      //Serial.println(exhaleVelocity);
+    }
+
+    if (inhaleSensorConnected || exhaleSensorConnected) {
+      Serial.println(message);
+    }
+
+
+
+
+    lastTimeSensorDataSent = currentTime;
+    return;
+  }
+  //Serial.println("-");
+}
+
+void HandleSendingConnectionToken() {
+  int connectionTokenTime = currentTime - lastTimeConnectionTokenSent;
+  if (connectionTokenTime >= connectionTokenSendInterval) {
+    Serial.println(connectionToken + valueSplitter + "1");  // sendingConnectionToken
+    lastTimeConnectionTokenSent = currentTime;
+    //Serial.println("blink");
+  }
+}
+
+void ReadSensors() {
+  inhaleVelocity = inhaleSensor.readMetersPerSecond();
+  exhaleVelocity = exhaleSensor.readMetersPerSecond();
 }
