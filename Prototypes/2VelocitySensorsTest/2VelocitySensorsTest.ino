@@ -54,7 +54,7 @@
 
 FS3000 fs;
 
-const int ledPin =9;
+const int ledPin = 11;
 
 bool isConnected = false;
 char emptyChar = ' ';
@@ -94,17 +94,13 @@ int maxSetupProgress = 5000;
 
 void setup() {
   Serial.begin(9600);
-  SetupSensor();
 
-  startTime = millis();
-  currentledBlinkInterval = ledSetupBlinkInterval;
-  ConnectionMode();
+  
+  //SetupSensorOld();
 }
 
 void loop() {
-  UpdateProjectTime();
-  HandleBlinking();
-  HandleSendingSensorData();
+  //UpdateSensorOld();
 }
 
 void SetupSensor() {
@@ -112,13 +108,28 @@ void SetupSensor() {
 
   if (fs.begin() == false)  //Begin communication over I2C
   {
-    Serial.println("The sensor did not respond. Please check wiring.");
+    //Serial.println("The sensor did not respond. Please check wiring.");
     while (1)
       ;  //Freeze
   }
 
   fs.setRange(AIRFLOW_RANGE_15_MPS);
   //Serial.println("Sensor is connected properly.");
+}
+
+void SetupSensorOld() {
+  Serial.begin(9600);
+  SetupSensor();
+
+  startTime = millis();
+  currentledBlinkInterval = ledSetupBlinkInterval;
+  ConnectionMode();
+}
+
+void UpdateSensorOld() {
+  UpdateProjectTime();
+  HandleBlinking();
+  HandleSendingSensorData();
 }
 
 void ConnectionMode() {

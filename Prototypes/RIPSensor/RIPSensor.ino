@@ -24,10 +24,10 @@ const int belly_LED_pins[] = { 8, 7, 6, 5, 4 };      // belly sensor LED pins in
 
 // RIPSensor Data
 //RIPSensorState RIPSensorCurrentState = RipSensorState::Idle;
-const String chestPositionVarName = "3";
 //const String speedVarName = "1";
 const String BreathingStateName = "1";
 const String inhaleExhaleSpeedName = "2";
+const String chestPositionVarName = "3";
 
 const int RIPIdleStateToken = 0;
 const int RIPConnectingStateToken = 1;
